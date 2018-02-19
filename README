@@ -1,0 +1,7 @@
+example
+
+client
+	./ftp_client 127.0.0.1 3140704117  123
+
+server
+	./ftp_server

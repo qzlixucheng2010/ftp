@@ -1,0 +1,169 @@
+#include<pthread.h>
+#include"header.h"
+
+void *  judgeClient(int  arg)
+{
+char sendbuf[1024];
+char recvbuf[1024];
+char  string[1024];		//组装字符串
+char buffer[1024];         // 用于文件传输
+FILE * fp;
+int c_fd=(int)arg;
+int length=0;
+DIR * dir;              //目录文件
+struct dirent *ptr;
+while(1)
+{
+	bzero(sendbuf,1024);
+	bzero(recvbuf,1024);
+	bzero(string,1024);
+	if(!recv(c_fd,recvbuf,1024,0))
+			continue;
+	if(!strcmp(recvbuf,"1"))
+	{	
+		dir=opendir("./");
+		while((ptr=readdir(dir))!=NULL)
+		{
+			strcat(sendbuf,ptr->d_name);
+			strcat(sendbuf,"      ");
+			if(ptr->d_type==4)
+			strcat(sendbuf,"dirent");
+			if(ptr->d_type==8)
+			strcat(sendbuf,"file");
+			strcat(sendbuf,"\n");
+		}
+		send(c_fd,sendbuf,strlen(sendbuf),0);
+		closedir(dir);
+		
+	}
+	if(!strcmp(recvbuf,"2"))
+	{
+		
+		strcat(sendbuf,"please input dirent:");
+		send(c_fd,sendbuf,strlen(sendbuf),0);
+		recv(c_fd,recvbuf,1024,0);
+		strcpy(string,"./");      //切换目录
+		strcat(string,recvbuf);
+		if((dir=opendir(string))==NULL)
+			{
+			send(c_fd,"result   error",100,0);
+			continue;
+			};
+		while((ptr=readdir(dir))!=NULL)      //切换后目录内文件
+			{
+				strcat(sendbuf,ptr->d_name);
+				strcat(sendbuf,"      ");
+				if(ptr->d_type==4)
+					strcat(sendbuf,"dirent");
+				if(ptr->d_type==8)
+					strcat(sendbuf,"file");
+				strcat(sendbuf,"\n");
+			}
+		send(c_fd,sendbuf,strlen(sendbuf),0);
+		closedir(dir);
+		chdir(string);
+		
+	}
+	if(!strcmp(recvbuf,"3"))
+	{
+		chdir("..");
+		opendir("./");
+		while((ptr=readdir(dir))!=NULL)
+			{
+				strcat(sendbuf,ptr->d_name);
+				strcat(sendbuf,"      ");
+				if(ptr->d_type==4)
+					strcat(sendbuf,"dirent");
+				if(ptr->d_type==8)
+					strcat(sendbuf,"file");
+				strcat(sendbuf,"\n");
+			}
+		send(c_fd,sendbuf,strlen(sendbuf),0);
+		closedir(dir);
+	
+	}
+	if(!strcmp(recvbuf,"4"))
+	{
+		strcat(sendbuf,"please input file:");
+		send(c_fd,sendbuf,strlen(sendbuf),0);
+		bzero(recvbuf,1024);
+		recv(c_fd,recvbuf,1024,0);
+		
+  		 
+      	 if(NULL ==(fp=fopen(recvbuf,"r")))
+      		  {
+         		  send(c_fd,"not found",20,0);
+	     		  continue;
+       		 }
+		else
+		{
+            bzero(buffer, 1024);
+            int file_block_length = 0;
+            while( (file_block_length = fread(buffer,sizeof(char),1024,fp))>0)
+           		{
+			
+              			  if(send(c_fd,buffer,file_block_length,0)<0)
+            				    {
+                  				  break;
+                				}
+               			 bzero(buffer, 1024);
+          		  }
+
+        
+        	}
+		fclose(fp);
+		
+	}
+
+	if(!strcmp(recvbuf,"5"))
+	{
+			strcat(sendbuf,"please input file:");
+			send(c_fd,sendbuf,strlen(sendbuf),0);
+			bzero(recvbuf,1024);
+			recv(c_fd,recvbuf,1024,0);
+			//打开文件
+			strcat(recvbuf,"update");
+			fp = fopen(recvbuf,"w");
+   			 if(NULL == fp )
+  				  {
+       				 
+					 close(c_fd);
+      				 pthread_exit(NULL);
+   				  }
+				bzero(buffer,1024);
+  			  while( length = recv(c_fd,buffer,1024,0))
+   				 {
+					
+      				  if(length < 0)
+       						 {
+            					break;
+     						}
+        				 int write_length = fwrite(buffer,sizeof(char),length,fp);
+   				     	 if (write_length<length)
+        					{
+            					
+            					break;
+        					}
+      				  bzero(buffer,1024);
+					if(length<1024)
+						{
+							break;
+						}  
+    				}
+			fclose(fp);
+
+
+	}
+	if(!strcmp(recvbuf,"6"))
+	{
+		close(c_fd);
+		 pthread_exit(NULL);
+		
+		
+	
+	}
+}
+}
+
+
+
